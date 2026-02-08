@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mock-kafka
+  labels:
+    app: mock-kafka
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mock-kafka
+  template:
+    metadata:
+      labels:
+        app: mock-kafka
+    spec:
+      containers:
+      - name: mock-kafka
+        image: node:18-alpine
+        ports:
+        - containerPort: 9092
+        command: ["/bin/sh"]
+        args: ["-c", "npm install express body-parser cors && echo 'const express = require(\"express\");\nconst bodyParser = require(\"body-parser\");\nconst cors = require(\"cors\");\n\nconst app = express();\napp.use(bodyParser.json());\napp.use(cors());\n\n// Mock Kafka topics storage\nconst topics = {\n  \"task-events\": [],\n  \"reminders\": [],\n  \"task-updates\": []\n};\n\n// Publish message endpoint\napp.post(\"/publish/:topic\", (req, res) => {\n  const topic = req.params.topic;\n  const message = req.body;\n  \n  if (topics[topic]) {\n    topics[topic].push({\n      id: Date.now(),\n      timestamp: new Date().toISOString(),\n      data: message\n    });\n    console.log(`Message published to ${topic}:`, message);\n    res.status(200).send({ status: \"published\", topic, messageId: Date.now() });\n  } else {\n    res.status(404).send({ error: \"Topic not found\" });\n  }\n});\n\n// Subscribe to topic endpoint\napp.get(\"/subscribe/:topic\", (req, res) => {\n  const topic = req.params.topic;\n  \n  if (topics[topic]) {\n    const messages = topics[topic];\n    res.status(200).json(messages);\n  } else {\n    res.status(404).send({ error: \"Topic not found\" });\n  }\n});\n\n// Health check\napp.get(\"/health\", (req, res) => {\n  res.status(200).send({ status: \"healthy\", topics: Object.keys(topics) });\n});\n\nconst PORT = 9092;\napp.listen(PORT, () => {\n  console.log(`Mock Kafka service listening on port ${PORT}`);\n  console.log(\"Available topics:\", Object.keys(topics));\n});' > server.js && node server.js"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mock-kafka
+spec:
+  selector:
+    app: mock-kafka
+  ports:
+    - protocol: TCP
+      port: 9092
+      targetPort: 9092
+  type: ClusterIP

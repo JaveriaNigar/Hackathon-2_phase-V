@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  labels:
+    app: notification
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification
+  template:
+    metadata:
+      labels:
+        app: notification
+      annotations:
+        dapr.io/enabled: "true"
+        dapr.io/app-id: "notification-service"
+        dapr.io/app-port: "8002"
+        dapr.io/config: "dapr-config"
+    spec:
+      containers:
+      - name: notification
+        image: python:3.11-slim
+        ports:
+        - containerPort: 8002
+        command: ["/bin/sh"]
+        args: ["-c", "pip install flask && echo 'from flask import Flask, request\nimport json\n\napp = Flask(__name__)\n\n@app.route(\"/\")\ndef home():\n    return \"Notification Service Running\"\n\n@app.route(\"/dapr/subscribe\", methods=[\"GET\"])\ndef subscribe():\n    # Define which topics this service wants to subscribe to\n    subscriptions = [\n        {\n            \"pubsubname\": \"kafka-pubsub\",\n            \"topic\": \"reminders\",\n            \"route\": \"/reminders\"\n        },\n        {\n            \"pubsubname\": \"kafka-pubsub\",\n            \"topic\": \"task-events\",\n            \"route\": \"/task-events\"\n        }\n    ]\n    return app.response_class(\n        response=json.dumps(subscriptions),\n        status=200,\n        mimetype='application/json'\n    )\n\n@app.route(\"/reminders\", methods=[\"POST\"])\ndef reminders_handler():\n    req_json = request.json\n    print(\"Received reminder event:\", req_json)\n    # Process reminder event\n    return \"OK\", 200\n\n@app.route(\"/task-events\", methods=[\"POST\"])\ndef task_events_handler():\n    req_json = request.json\n    print(\"Received task event:\", req_json)\n    # Process task event\n    return \"OK\", 200\n\nif __name__ == \"__main__\":\n    app.run(host=\"0.0.0.0\", port=8002)' > app.py && python app.py"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+spec:
+  selector:
+    app: notification
+  ports:
+    - protocol: TCP
+      port: 8002
+      targetPort: 8002
+  type: ClusterIP

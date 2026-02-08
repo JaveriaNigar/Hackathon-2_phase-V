@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-single
+  namespace: default
+  labels:
+    app: kafka-single
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-single
+  template:
+    metadata:
+      labels:
+        app: kafka-single
+    spec:
+      containers:
+      - name: kafka
+        image: docker.io/bitnami/kafka:3.6
+        ports:
+        - containerPort: 9092
+        env:
+        - name: KAFKA_CFG_NODE_ID
+          value: "0"
+        - name: KAFKA_CFG_PROCESS_ROLES
+          value: "controller,broker"
+        - name: KAFKA_CFG_CONTROLLER_QUORUM_VOTERS
+          value: "0@kafka-single:9093"
+        - name: KAFKA_CFG_LISTENERS
+          value: "PLAINTEXT://:9092,CONTROLLER://:9093"
+        - name: KAFKA_CFG_INTER_BROKER_LISTENER_NAME
+          value: "PLAINTEXT"
+        - name: KAFKA_CFG_CONTROLLER_LISTENER_NAMES
+          value: "CONTROLLER"
+        - name: KAFKA_CFG_DEFAULT_REPLICATION_FACTOR
+          value: "1"
+        - name: KAFKA_CFG_MIN_INSYNC_REPLICAS
+          value: "1"
+        - name: KAFKA_BROKER_ID
+          value: "0"
+        - name: ALLOW_PLAINTEXT_LISTENER
+          value: "yes"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-single
+  namespace: default
+spec:
+  selector:
+    app: kafka-single
+  ports:
+  - port: 9092
+    targetPort: 9092
+    protocol: TCP
+    name: plaintext
+  - port: 9093
+    targetPort: 9093
+    protocol: TCP
+    name: controller
+  type: ClusterIP

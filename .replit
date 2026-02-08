@@ -1,0 +1,11 @@
+# Replit Configuration for FastAPI Todo Chatbot
+
+# .replit file for configuring Replit environment
+language = "python3"
+
+[run]
+# Command to run the application with Dapr
+command = "dapr run --app-id todo-backend --app-port 3000 -- uvicorn src.api.main:app --host 0.0.0.0 --port 3000"
+
+# Alternative command without Dapr (if Dapr is not available in free tier)
+# command = "uvicorn src.api.main:app --host 0.0.0.0 --port 3000"

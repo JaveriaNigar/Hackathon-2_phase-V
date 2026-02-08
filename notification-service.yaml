@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  labels:
+    app: notification
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification
+  template:
+    metadata:
+      labels:
+        app: notification
+      annotations:
+        dapr.io/enabled: "true"
+        dapr.io/app-id: "notification"
+        dapr.io/app-port: "8002"
+        dapr.io/config: "dapr-config"
+    spec:
+      containers:
+      - name: notification
+        image: python:3.11-slim  # Placeholder image - in production this would be your actual notification service
+        ports:
+        - containerPort: 8002
+        command: ["/bin/sh"]
+        args: ["-c", "pip install flask && echo 'from flask import Flask\napp = Flask(__name__)\n\n@app.route(\"/\")\ndef home():\n    return \"Notification Service\"\n\n@app.route(\"/dapr/subscribe\")\ndef subscribe():\n    from flask import jsonify\n    return jsonify([{\"pubsubname\": \"kafka-pubsub\", \"topic\": \"reminders\", \"route\": \"/reminders\"},{\"pubsubname\": \"kafka-pubsub\", \"topic\": \"task-events\", \"route\": \"/task-events\"}])\n\n@app.route(\"/reminders\", methods=[\"POST\"])\ndef reminders_handler():\n    import json\n    from flask import request\n    print(\"Received reminder event:\", request.json)\n    return \"OK\"\n\n@app.route(\"/task-events\", methods=[\"POST\"])\ndef task_events_handler():\n    import json\n    from flask import request\n    print(\"Received task event:\", request.json)\n    return \"OK\"\n\nif __name__ == \"__main__\":\n    app.run(host=\"0.0.0.0\", port=8002)\" > app.py && python app.py"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+spec:
+  selector:
+    app: notification
+  ports:
+    - protocol: TCP
+      port: 8002
+      targetPort: 8002
+  type: ClusterIP

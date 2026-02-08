@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-app-code
+data:
+  main.py: |
+    from fastapi import FastAPI
+    import os
+    import logging
+    
+    # Set up logging
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+    
+    app = FastAPI()
+    
+    @app.get("/")
+    def read_root():
+        logger.info("Root endpoint accessed")
+        return {"Hello": "World", "service": "backend"}
+    
+    @app.get("/health")
+    def health_check():
+        logger.info("Health check endpoint accessed")
+        return {"status": "healthy", "database_url": os.getenv("DATABASE_URL")}
+    
+    @app.post("/dapr/subscribe")
+    def dapr_subscribe():
+        # Return the topics this service subscribes to
+        logger.info("Dapr subscription endpoint accessed")
+        return [
+            {
+                "pubsubname": "kafka-pubsub",
+                "topic": "task-events",
+                "route": "/events/task"
+            },
+            {
+                "pubsubname": "kafka-pubsub",
+                "topic": "reminders",
+                "route": "/events/reminders"
+            }
+        ]
+    
+    @app.post("/events/task")
+    def handle_task_events():
+        logger.info("Task event received")
+        return {"status": "received"}
+        
+    @app.post("/events/reminders")
+    def handle_reminder_events():
+        logger.info("Reminder event received")
+        return {"status": "received"}
+    
+    if __name__ == "__main__":
+        import uvicorn
+        uvicorn.run(app, host="0.0.0.0", port=8000)
